@@ -1,0 +1,10 @@
+torch==2.0.1 #CUDA driver==11.7
+datargs
+datasets
+tokenizers
+sentencepiece
+transformers==4.37.0
+rouge_score
+evaluate
+accelerate
+protobuf
