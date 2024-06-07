@@ -1,3 +1,5 @@
+# Modified from: https://github.com/LazarusNLP/IndoT5/blob/main/scripts/run_qa.py
+
 from dataclasses import dataclass
 from datargs import parse
 
@@ -22,31 +24,25 @@ from utils import QuestionAnsweringSeq2SeqTrainer
 #################################
 @dataclass
 class Args:
-    model_checkpoint: str = "LazarusNLP/IndoNanoT5-base" # "Wikidepia/IndoT5-base"
+    model_checkpoint: str = "LazarusNLP/IndoNanoT5-base"
     dataset_name: str = "dehanalkautsar/xcopa_gen_id"
-    # dataset_config: str = "question_answering"
-    # context_column_name: str = "context"
-    # question_column_name: str = "input"
-    answer_column_name: str = "label" #"references"
-    # id_column_name: str = "gem_id"
+    answer_column_name: str = "label"
     input_max_length: int = 128
     target_max_length: int = 128
     num_beams: int = 5
     output_dir: str = "outputs/base-indot5-lr5e5-xcopagenid"
-    num_train_epochs: int = 10 #50
-    early_stopping_patience: int = 3 #5
+    num_train_epochs: int = 10 
+    early_stopping_patience: int = 3 
     early_stopping_threshold: float = 0.01
     optim: str = "adamw_torch_fused"
     learning_rate: float = 5e-5
     weight_decay: float = 0.01
     per_device_train_batch_size: int = 8
     per_device_eval_batch_size: int = 16
-    # hub_model_id: str = "LazarusNLP/IndoNanoT5-base-TyDiQA"
 #################################
 
 def main(args: Args):
     # load dataset, tokenizer, model
-    # dataset = load_dataset(args.dataset_name, trust_remote_code=True)
     train_dataset, validation_dataset, test_dataset = load_dataset(args.dataset_name, split=[f"train[:50%]", "validation[:50%]", "test[:50%]"], trust_remote_code=True)
     tokenizer = AutoTokenizer.from_pretrained(args.model_checkpoint)
     model = AutoModelForSeq2SeqLM.from_pretrained(args.model_checkpoint)
@@ -72,23 +68,6 @@ def main(args: Args):
         # Tokenize targets with the `text_target` keyword argument
         labels = tokenizer(text_target=targets, max_length=args.target_max_length, truncation=True)
 
-        # Since one example might give us several features if it has a long context, we need a map from a feature to
-        # its corresponding example. This key gives us just that.
-        # sample_mapping = model_inputs.pop("overflow_to_sample_mapping")
-
-        # # For evaluation, we will need to convert our predictions to substrings of the context, so we keep the
-        # # corresponding example_id and we will store the offset mappings.
-        # model_inputs["example_id"] = []
-        # # Augment the overflowing tokens to the labels
-        # labels_out = []
-
-        # for i in range(len(model_inputs["input_ids"])):
-        #     # One example can give several spans, this is the index of the example containing this span of text.
-        #     sample_index = sample_mapping[i]
-        #     model_inputs["example_id"].append(examples[args.id_column_name][sample_index])
-        #     labels_out.append(labels["input_ids"][sample_index])
-
-        # model_inputs["labels"] = labels_out
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
 
@@ -130,25 +109,6 @@ def main(args: Args):
         preds = np.where(preds != -100, preds, tokenizer.pad_token_id)
         decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
 
-        # # Build a map example to its corresponding features.
-        # example_id_to_index = {k: i for i, k in enumerate(examples[args.id_column_name])}
-        # feature_per_example = {example_id_to_index[feature["example_id"]]: i for i, feature in enumerate(features)}
-        # predictions = {}
-        # # Let's loop over all the examples!
-        # for example_index, example in enumerate(examples):
-        #     # This is the index of the feature associated to the current example.
-        #     feature_index = feature_per_example[example_index]
-        #     predictions[example[args.id_column_name]] = decoded_preds[feature_index]
-
-        # Format the result to the format the metric expects.
-        # formatted_predictions = [
-        #     {"id": k, "prediction_text": v, "no_answer_probability": 0.0} for k, v in predictions.items()
-        # ]
-
-        # references = [
-        #     {"id": ex[args.id_column_name], "answers": {"answer_start": [0], "text": ex[args.answer_column_name]}}
-        #     for ex in examples
-        # ]
         formatted_predictions = []
         references = []
         for i, ex in enumerate(examples):
@@ -175,12 +135,7 @@ def main(args: Args):
         save_total_limit=2,
         predict_with_generate=True,
         load_best_model_at_end=True,
-        metric_for_best_model="f1", #f1
-        # bf16=True,
-        # report_to="tensorboard",
-        # push_to_hub=True,
-        # hub_model_id=args.hub_model_id,
-        # hub_private_repo=True,
+        metric_for_best_model="f1", 
     )
 
     trainer = QuestionAnsweringSeq2SeqTrainer(
@@ -200,8 +155,6 @@ def main(args: Args):
 
     result = trainer.evaluate(tokenized_test_dataset, test_dataset, max_length=args.target_max_length, num_beams=args.num_beams)
     print(result)
-
-    # trainer.push_to_hub()
 
 if __name__ == "__main__":
     args = parse(Args)
