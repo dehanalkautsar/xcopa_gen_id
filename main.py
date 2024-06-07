@@ -46,7 +46,8 @@ class Args:
 
 def main(args: Args):
     # load dataset, tokenizer, model
-    dataset = load_dataset(args.dataset_name, trust_remote_code=True)
+    # dataset = load_dataset(args.dataset_name, trust_remote_code=True)
+    train_dataset, validation_dataset, test_dataset = load_dataset(args.dataset_name, split=[f"train[:50%]", "validation[:50%]", "test[:50%]"], trust_remote_code=True)
     tokenizer = AutoTokenizer.from_pretrained(args.model_checkpoint)
     model = AutoModelForSeq2SeqLM.from_pretrained(args.model_checkpoint)
 
@@ -90,10 +91,6 @@ def main(args: Args):
         # model_inputs["labels"] = labels_out
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
-
-    train_dataset = dataset["train"]
-    validation_dataset = dataset["validation"]
-    test_dataset = dataset["test"]
 
     tokenized_train_dataset = train_dataset.map(
         preprocess_function, batched=True, remove_columns=train_dataset.column_names
